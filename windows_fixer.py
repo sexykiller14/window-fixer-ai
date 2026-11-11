@@ -1638,6 +1638,12 @@ class App(tk.Tk):
         ans_card = ttk.LabelFrame(tab, text=" AI Diagnostic Analysis & Repair Plan ", padding=8)
         ans_card.grid(row=1, column=0, sticky="nsew", padx=(0, 6))
 
+        ans_bar = ttk.Frame(ans_card, style="Card.TFrame")
+        ans_bar.pack(fill="x", pady=(0, 4))
+        ttk.Label(ans_bar, text="Step-by-step diagnostic reasoning and recovery plan:", style="Muted.TLabel").pack(side="left")
+        ttk.Button(ans_bar, text="📄 Export Report (.html)", command=self.export_report, style="TButton").pack(side="right")
+        ttk.Button(ans_bar, text="📋 Copy Plan", command=self.copy_answer, style="TButton").pack(side="right", padx=(0, 6))
+
         self.answer = ScrolledText(ans_card, wrap="word", bg=THEME["bg_input"], fg=THEME["fg_text"],
                                    insertbackground=THEME["accent_cyan"], relief="solid", bd=1,
                                    highlightthickness=1, highlightbackground=THEME["border"],
@@ -1677,13 +1683,21 @@ class App(tk.Tk):
         q_card = ttk.LabelFrame(r_col, text=" Quick Fix Library (55 Presets) ", padding=8)
         q_card.grid(row=1, column=0, sticky="nsew")
 
-        ttk.Label(q_card, text="Filter by category (Ctrl+click to select multiple):", style="Muted.TLabel").pack(anchor="w", pady=(0, 2))
+        ttk.Label(q_card, text="Filter by category or live search:", style="Muted.TLabel").pack(anchor="w", pady=(0, 2))
+
+        q_filter_frame = ttk.Frame(q_card, style="Card.TFrame")
+        q_filter_frame.pack(fill="x", pady=(0, 4))
 
         self.qcat_var = tk.StringVar(value="All")
-        qcat = ttk.Combobox(q_card, textvariable=self.qcat_var, state="readonly",
+        qcat = ttk.Combobox(q_filter_frame, textvariable=self.qcat_var, state="readonly", width=16,
                             values=["All"] + list(QUICK_FIX_GROUPS))
-        qcat.pack(fill="x", pady=(0, 4))
+        qcat.pack(side="left", padx=(0, 4))
         qcat.bind("<<ComboboxSelected>>", self._fill_quick)
+
+        self.qsearch_var = tk.StringVar()
+        q_search = ttk.Entry(q_filter_frame, textvariable=self.qsearch_var)
+        q_search.pack(side="left", fill="x", expand=True)
+        self.qsearch_var.trace_add("write", self._fill_quick)
 
         qf = ttk.Frame(q_card, style="Card.TFrame")
         qf.pack(fill="both", expand=True)
@@ -1769,7 +1783,10 @@ class App(tk.Tk):
 
         self.fullfix_btn = ttk.Button(c2, text="🛠 Scan Whole PC + AUTO-FIX Everything with AI",
                                       command=lambda: self.full_scan(True), style="Success.TButton")
-        self.fullfix_btn.pack(anchor="w", pady=(6, 0))
+        self.fullfix_btn.pack(anchor="w", pady=(6, 4))
+
+        ttk.Button(c2, text="🛡 Create System Restore Point Now", command=self.create_restore_point_now,
+                   style="TButton").pack(anchor="w")
 
         # Safety Safeguards Banner
         saf = ttk.LabelFrame(tab, text=" Safety & Reliability Safeguards ", padding=10)
@@ -1811,7 +1828,8 @@ class App(tk.Tk):
         self.diskfix_btn.pack(side="left", padx=(0, 8))
 
         ttk.Button(r1, text="🔧 Standard Repair (chkdsk /f)", command=lambda: self.repair(False)).pack(side="left", padx=(0, 8))
-        ttk.Button(r1, text="🛡 Deep Surface Scan (chkdsk /r)", command=lambda: self.repair(True)).pack(side="left")
+        ttk.Button(r1, text="🛡 Deep Surface Scan (chkdsk /r)", command=lambda: self.repair(True)).pack(side="left", padx=(0, 8))
+        ttk.Button(r1, text="🛡 Create Restore Point", command=self.create_restore_point_now, style="TButton").pack(side="left")
 
         # Boot Loop & Startup Repair
         bt = ttk.LabelFrame(tab, text=" Windows Startup & 'Automatic Repair' Loop Recovery ", padding=12)
@@ -3060,13 +3078,16 @@ class App(tk.Tk):
         for b in (self.fullscan_btn, self.fullfix_btn):
             b.config(state=state)
 
-    def _fill_quick(self, _event=None):
+    def _fill_quick(self, _event=None, *_):
         cat = self.qcat_var.get()
+        search_query = getattr(self, "qsearch_var", None)
+        query = search_query.get().strip().lower() if search_query else ""
         groups = QUICK_FIX_GROUPS if cat not in QUICK_FIX_GROUPS else {cat: QUICK_FIX_GROUPS[cat]}
         self.quick.delete(0, "end")
         for grp in groups.values():
             for name in grp:
-                self.quick.insert("end", name)
+                if not query or query in name.lower():
+                    self.quick.insert("end", name)
 
     def full_scan(self, fix):
         admin = is_admin()
@@ -3391,23 +3412,182 @@ class App(tk.Tk):
             return
         self.confirm_and_run([self.commands[i] for i in sel])
 
-    def confirm_and_run(self, cmds):
-        risky = [c for c in cmds if any(re.search(p, c, re.I) for p in RISKY)]
-        body = "\n".join(cmds)
-        if risky:
-            if not messagebox.askyesno(
-                "RISKY command detected",
-                "These commands can delete data or change critical settings:\n\n"
-                + "\n".join(risky) + "\n\nOnly continue if you fully understand them. Run anyway?",
-                icon="warning",
-            ):
+    def copy_answer(self):
+        try:
+            content = self.answer.get("1.0", "end").strip()
+            if content:
+                self.clipboard_clear()
+                self.clipboard_append(content)
+                self.status.set("AI diagnostic plan copied to clipboard.")
+        except Exception:
+            pass
+
+    def export_report(self):
+        try:
+            problem_text = self.problem.get("1.0", "end").strip() or "General system diagnostic inquiry"
+            ai_text = self.answer.get("1.0", "end").strip()
+            if not ai_text:
+                messagebox.showinfo("Export Report", "Run a diagnostic scan or query the AI first before exporting a report.")
                 return
-        elif not messagebox.askyesno("Run commands?", f"Run these commands?\n\n{body}"):
+
+            dt = time.strftime("%Y-%m-%d %H:%M:%S")
+            file_dt = time.strftime("%Y%m%d_%H%M%S")
+            sys_info = gather_system_info()
+            log_text = self.log.get("1.0", "end").strip()
+            hostname = socket.gethostname()
+            admin_status = "Administrator" if is_admin() else "Standard User"
+
+            html_content = f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Windows Fixer AI - Diagnostic & Repair Report</title>
+<style>
+  body {{ font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #0a0e17; color: #f8fafc; margin: 0; padding: 24px; line-height: 1.5; }}
+  .container {{ max-width: 920px; margin: 0 auto; }}
+  .header {{ border-bottom: 2px solid #22304d; padding-bottom: 16px; margin-bottom: 24px; }}
+  h1 {{ color: #38bdf8; margin: 0 0 6px 0; font-size: 24px; }}
+  .meta {{ color: #94a3b8; font-size: 13px; }}
+  .card {{ background: #131b2e; border: 1px solid #22304d; border-radius: 8px; padding: 18px; margin-bottom: 18px; }}
+  h2 {{ color: #38bdf8; font-size: 15px; margin-top: 0; border-bottom: 1px solid #22304d; padding-bottom: 8px; }}
+  pre {{ background: #0c1322; color: #38bdf8; border: 1px solid #22304d; border-radius: 6px; padding: 12px; overflow-x: auto; font-family: Consolas, monospace; font-size: 13px; white-space: pre-wrap; }}
+  .log-box {{ color: #94a3b8; font-size: 12px; max-height: 350px; overflow-y: auto; }}
+  .badge {{ display: inline-block; padding: 3px 8px; border-radius: 4px; font-weight: bold; font-size: 12px; }}
+  .badge-admin {{ background: #064e3b; color: #34d399; }}
+  .footer {{ text-align: center; color: #64748b; font-size: 12px; margin-top: 30px; }}
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <h1>🛠 Windows Fixer AI - Diagnostic & Repair Report</h1>
+    <div class="meta">Generated: {dt} • Host: {hostname} • Privilege: <span class="badge badge-admin">{admin_status}</span></div>
+  </div>
+  <div class="card">
+    <h2>1. Reported Issue / Symptoms</h2>
+    <p>{problem_text}</p>
+  </div>
+  <div class="card">
+    <h2>2. System Hardware & OS Specifications</h2>
+    <pre>{sys_info}</pre>
+  </div>
+  <div class="card">
+    <h2>3. AI Diagnostic Analysis & Repair Plan</h2>
+    <pre>{ai_text}</pre>
+  </div>
+  <div class="card">
+    <h2>4. Execution & Verification Log</h2>
+    <pre class="log-box">{log_text if log_text else 'No execution logs recorded.'}</pre>
+  </div>
+  <div class="footer">
+    Generated by Windows Fixer AI • Open Source Diagnostic Suite
+  </div>
+</div>
+</body>
+</html>"""
+            default_name = f"windows_fixer_report_{file_dt}.html"
+            p = filedialog.asksaveasfilename(title="Save Diagnostic Report", initialfile=default_name,
+                                             defaultextension=".html", filetypes=[("HTML Report", "*.html")])
+            if p:
+                with open(p, "w", encoding="utf-8") as f:
+                    f.write(html_content)
+                self.status.set(f"Diagnostic report saved: {os.path.basename(p)}")
+                if messagebox.askyesno("Report Saved", f"Diagnostic report saved successfully:\n{p}\n\nOpen report in your web browser now?"):
+                    webbrowser.open("file://" + os.path.abspath(p))
+        except Exception as e:
+            messagebox.showerror("Export Failed", str(e))
+
+    def create_restore_point_now(self):
+        if not is_admin():
+            messagebox.showwarning("Administrator Needed",
+                                   "Creating a system restore point requires Administrator privileges. Click 'Restart as Admin' first.")
             return
-        threading.Thread(target=self._run, args=(cmds,), daemon=True).start()
+        if not messagebox.askyesno("Create Restore Point", "Create a Windows System Restore Point now so you can roll back at any time?"):
+            return
+        self.status.set("Creating system restore point...")
+        def work():
+            self.q.put(("log", "\n##### Creating System Restore Point #####\n"))
+            out = _quick(_ps(RESTORE_PS), 180)
+            self.q.put(("log", (out or "Restore point command finished.") + "\n"))
+            self.q.put(("status", "Restore point created successfully."))
+        threading.Thread(target=work, daemon=True).start()
+
+    def confirm_and_run(self, cmds):
+        if not cmds:
+            return
+        risky = [c for c in cmds if any(re.search(p, c, re.I) for p in RISKY)]
+
+        # Custom Dark Mode Modal Dialog
+        dlg = tk.Toplevel(self)
+        dlg.title("Confirm Execution" if not risky else "⚠️ Confirm Risky Commands")
+        dlg.geometry("680x500")
+        dlg.configure(bg=THEME["bg_root"])
+        dlg.transient(self)
+        dlg.grab_set()
+
+        try:
+            x = self.winfo_rootx() + (self.winfo_width() - 680) // 2
+            y = self.winfo_rooty() + (self.winfo_height() - 500) // 2
+            dlg.geometry(f"+{max(20, x)}+{max(20, y)}")
+        except Exception:
+            pass
+
+        hdr_bg = "#7f1d1d" if risky else THEME["bg_header"]
+        hdr_fg = "#fca5a5" if risky else THEME["accent_cyan"]
+        hdr_title = "⚠️ ATTENTION: POTENTIALLY SENSITIVE OPERATIONS" if risky else "🛠 REVIEW & EXECUTE COMMANDS"
+        hdr_sub = ("These commands modify critical system states or disk configurations. Review each line before executing:"
+                   if risky else
+                   f"Review the {len(cmds)} command(s) below before executing sequentially in elevated prompt:")
+
+        hdr_frame = tk.Frame(dlg, bg=hdr_bg, padx=14, pady=10)
+        hdr_frame.pack(fill="x")
+        tk.Label(hdr_frame, text=hdr_title, font=("Segoe UI", 10, "bold"), bg=hdr_bg, fg=hdr_fg).pack(anchor="w")
+        tk.Label(hdr_frame, text=hdr_sub, font=("Segoe UI", 8), bg=hdr_bg, fg="#f8fafc", justify="left").pack(anchor="w", pady=(2, 0))
+
+        content_frame = ttk.Frame(dlg, style="Root.TFrame", padding=12)
+        content_frame.pack(fill="both", expand=True)
+
+        txt_box = ScrolledText(content_frame, wrap="none", font=("Consolas", 10),
+                               bg=THEME["bg_input"], fg=THEME["fg_text"],
+                               insertbackground=THEME["accent_cyan"], relief="solid", bd=1,
+                               highlightthickness=1, highlightbackground=THEME["border"])
+        txt_box.pack(fill="both", expand=True)
+
+        for idx, c in enumerate(cmds, 1):
+            is_c_risky = any(re.search(p, c, re.I) for p in RISKY)
+            prefix = f"{idx:2d}. [RISKY] " if is_c_risky else f"{idx:2d}. "
+            txt_box.insert("end", prefix + c + "\n")
+        txt_box.config(state="disabled")
+
+        btn_bar = ttk.Frame(dlg, style="Root.TFrame", padding=12)
+        btn_bar.pack(fill="x")
+
+        def copy_cmds():
+            try:
+                self.clipboard_clear()
+                self.clipboard_append("\n".join(cmds))
+                self.status.set(f"Copied {len(cmds)} command(s) to clipboard.")
+            except Exception:
+                pass
+
+        ttk.Button(btn_bar, text="📋 Copy Commands", command=copy_cmds, style="TButton").pack(side="left")
+
+        def do_execute():
+            dlg.destroy()
+            threading.Thread(target=self._run, args=(cmds,), daemon=True).start()
+
+        run_style = "Danger.TButton" if risky else "Success.TButton"
+        run_txt = "⚠️ Run Risky Commands Anyway" if risky else f"▶ Execute {len(cmds)} Command(s)"
+
+        ttk.Button(btn_bar, text="Cancel", command=dlg.destroy, style="TButton").pack(side="right", padx=(6, 0))
+        ttk.Button(btn_bar, text=run_txt, command=do_execute, style=run_style).pack(side="right")
 
     def _run(self, cmds):
+        self.autofix_stop = False
         for c in cmds:
+            if getattr(self, "autofix_stop", False):
+                self.q.put(("log", "\n[Command execution cancelled by user]\n"))
+                break
             self.q.put(("log", f"\n> {c}\n"))
             self.q.put(("status", f"Running: {c}"))
             try:
@@ -3416,6 +3596,7 @@ class App(tk.Tk):
                     encoding="oem" if os.name == "nt" else "utf-8", errors="replace",
                     creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
                 )
+                self._proc = p
                 for line in p.stdout:
                     self.q.put(("log", line))
                 p.wait()
@@ -3424,6 +3605,8 @@ class App(tk.Tk):
                     self.q.put(("log", "Tip: this may need Administrator rights (Restart as Admin).\n"))
             except Exception as e:
                 self.q.put(("log", f"[error] {e}\n"))
+            finally:
+                self._proc = None
         self.q.put(("status", "Finished running commands"))
 
     # ---------- queue pump ----------
