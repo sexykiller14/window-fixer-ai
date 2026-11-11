@@ -12,6 +12,22 @@ The application features a modern **Windows 11 Fluent Slate Dark Theme** with na
 
 ---
 
+## 📸 Interface Screenshots
+
+| **💬 AI Assistant & Diagnostics** | **🛡 12-Point Full PC Health Scan** |
+| :---: | :---: |
+| [![AI Assistant](screenshots/01_ai_assistant.png)](screenshots/01_ai_assistant.png) | [![Full PC Scan](screenshots/02_full_pc_scan.png)](screenshots/02_full_pc_scan.png) |
+
+| **💾 Storage & Boot-Loop Recovery** | **🖥 QEMU Sandbox & Auto-Test Matrix** |
+| :---: | :---: |
+| [![Storage & Boot Repair](screenshots/03_storage_boot_repair.png)](screenshots/03_storage_boot_repair.png) | [![VM Sandbox & Test](screenshots/04_vm_sandbox_test.png)](screenshots/04_vm_sandbox_test.png) |
+
+| **⚙ AI Providers & System Settings** |
+| :---: |
+| [![Settings & Providers](screenshots/05_settings_providers.png)](screenshots/05_settings_providers.png) |
+
+---
+
 ## 🚀 Key Features
 
 ### 1. 💬 AI Assistant & Diagnostics
