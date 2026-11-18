@@ -8,7 +8,7 @@
 
 **Windows Fixer AI** is an advanced, automated diagnostic and system recovery application designed to resolve Windows 10 & 11 issues—from subtle network and update glitches to full boot loops and disk corruption.
 
-The application features a modern **Windows 11 Fluent Slate Dark Theme** with native High-DPI scaling, an executive header bar with live status badges, a 5-tab workspace, and a persistent execution console.
+The application features a modern **Windows 11 Fluent Slate Dark Theme** with native High-DPI scaling, a sidebar-driven workspace (Dashboard, AI Assistant, Full PC Scan, Storage & Boot, VM Sandbox, Settings), a home dashboard, and a collapsible, colour-coded execution console. Shortcuts: `Ctrl+1`..`Ctrl+6` switch pages, `Ctrl+Enter` diagnoses.
 
 ---
 
